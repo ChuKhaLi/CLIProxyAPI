@@ -1,7 +1,9 @@
 name: Sync Fork
 
 on:
-  workflow_dispatch: # manual trigger only
+  schedule:
+    - cron: '0 21 * * *' # run once per day at 4 AM GMT+7 (21:00 UTC)
+  workflow_dispatch: # manual trigger
 
 jobs:
   sync:
