@@ -1,9 +1,7 @@
 name: Sync Fork
 
 on:
-  schedule:
-    - cron: '*/30 * * * *' # every 30 minutes
-  workflow_dispatch: # on button click
+  workflow_dispatch: # manual trigger only
 
 jobs:
   sync:
@@ -13,6 +11,6 @@ jobs:
     steps:
       - uses: tgymnich/fork-sync@v1.8
         with:
-          owner: llvm
-          base: master
-          head: master
+          owner: router-for-me
+          base: main
+          head: main
