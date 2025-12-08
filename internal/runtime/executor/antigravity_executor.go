@@ -729,8 +729,9 @@ func geminiToAntigravity(modelName string, payload []byte, projectID string) []b
 	template, _ = sjson.Delete(template, "request.safetySettings")
 	template, _ = sjson.Set(template, "request.toolConfig.functionCallingConfig.mode", "VALIDATED")
 
-	// Do NOT modify thinkingConfig to Claude models
-	if !strings.HasPrefix(modelName, "claude-") && !strings.HasPrefix(modelName, "gemini-3-") {
+	// Only modify thinkingConfig for Gemini models that don't support thinking (non-Gemini-3)
+	// Do NOT apply this to Claude models or other non-Gemini models
+	if strings.HasPrefix(modelName, "gemini-") && !strings.HasPrefix(modelName, "gemini-3-") {
 		if thinkingLevel := gjson.Get(template, "request.generationConfig.thinkingConfig.thinkingLevel"); thinkingLevel.Exists() {
 			template, _ = sjson.Delete(template, "request.generationConfig.thinkingConfig.thinkingLevel")
 			template, _ = sjson.Set(template, "request.generationConfig.thinkingConfig.thinkingBudget", -1)
