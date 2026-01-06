@@ -6,15 +6,13 @@ on:
       - main
   workflow_dispatch:
 
-env:
-
 jobs:
   deploy:
     name: Deploy to ${{ matrix.server }}
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        server: ${{ fromJson(secrets.DEPLOY_SERVERS) }}
+        server: ${{ fromJson(vars.DEPLOY_SERVERS) }}
       fail-fast: false
     steps:
       - name: Deploy via SSH
