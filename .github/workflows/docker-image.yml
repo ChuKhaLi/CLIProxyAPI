@@ -1,9 +1,8 @@
 name: CI/CD Pipeline
 
 on:
-  push:
-    branches:
-      - main
+  schedule:
+    - cron: '0 21 * * *'  # 4 AM GMT+7 (21:00 UTC) daily
   workflow_dispatch:
 
 jobs:
