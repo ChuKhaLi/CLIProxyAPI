@@ -94,13 +94,18 @@ func (e *AntigravityExecutor) Execute(ctx context.Context, auth *cliproxyauth.Au
 
 	from := opts.SourceFormat
 	to := sdktranslator.FromString("antigravity")
+	originalPayload := bytes.Clone(req.Payload)
+	if len(opts.OriginalRequest) > 0 {
+		originalPayload = bytes.Clone(opts.OriginalRequest)
+	}
+	originalTranslated := sdktranslator.TranslateRequest(from, to, req.Model, originalPayload, false)
 	translated := sdktranslator.TranslateRequest(from, to, req.Model, bytes.Clone(req.Payload), false)
 
 	translated = ApplyThinkingMetadataCLI(translated, req.Metadata, req.Model)
 	translated = util.ApplyGemini3ThinkingLevelFromMetadataCLI(req.Model, req.Metadata, translated)
 	translated = util.ApplyDefaultThinkingIfNeededCLI(req.Model, req.Metadata, translated)
 	translated = normalizeAntigravityThinking(req.Model, translated, isClaude)
-	translated = applyPayloadConfigWithRoot(e.cfg, req.Model, "antigravity", "request", translated)
+	translated = applyPayloadConfigWithRoot(e.cfg, req.Model, "antigravity", "request", translated, originalTranslated)
 
 	baseURLs := antigravityBaseURLFallbackOrder(auth)
 	httpClient := newProxyAwareHTTPClient(ctx, e.cfg, auth, 0)
@@ -189,13 +194,18 @@ func (e *AntigravityExecutor) executeClaudeNonStream(ctx context.Context, auth *
 
 	from := opts.SourceFormat
 	to := sdktranslator.FromString("antigravity")
+	originalPayload := bytes.Clone(req.Payload)
+	if len(opts.OriginalRequest) > 0 {
+		originalPayload = bytes.Clone(opts.OriginalRequest)
+	}
+	originalTranslated := sdktranslator.TranslateRequest(from, to, req.Model, originalPayload, true)
 	translated := sdktranslator.TranslateRequest(from, to, req.Model, bytes.Clone(req.Payload), true)
 
 	translated = ApplyThinkingMetadataCLI(translated, req.Metadata, req.Model)
 	translated = util.ApplyGemini3ThinkingLevelFromMetadataCLI(req.Model, req.Metadata, translated)
 	translated = util.ApplyDefaultThinkingIfNeededCLI(req.Model, req.Metadata, translated)
 	translated = normalizeAntigravityThinking(req.Model, translated, true)
-	translated = applyPayloadConfigWithRoot(e.cfg, req.Model, "antigravity", "request", translated)
+	translated = applyPayloadConfigWithRoot(e.cfg, req.Model, "antigravity", "request", translated, originalTranslated)
 
 	baseURLs := antigravityBaseURLFallbackOrder(auth)
 	httpClient := newProxyAwareHTTPClient(ctx, e.cfg, auth, 0)
@@ -525,13 +535,18 @@ func (e *AntigravityExecutor) ExecuteStream(ctx context.Context, auth *cliproxya
 
 	from := opts.SourceFormat
 	to := sdktranslator.FromString("antigravity")
+	originalPayload := bytes.Clone(req.Payload)
+	if len(opts.OriginalRequest) > 0 {
+		originalPayload = bytes.Clone(opts.OriginalRequest)
+	}
+	originalTranslated := sdktranslator.TranslateRequest(from, to, req.Model, originalPayload, true)
 	translated := sdktranslator.TranslateRequest(from, to, req.Model, bytes.Clone(req.Payload), true)
 
 	translated = ApplyThinkingMetadataCLI(translated, req.Metadata, req.Model)
 	translated = util.ApplyGemini3ThinkingLevelFromMetadataCLI(req.Model, req.Metadata, translated)
 	translated = util.ApplyDefaultThinkingIfNeededCLI(req.Model, req.Metadata, translated)
 	translated = normalizeAntigravityThinking(req.Model, translated, isClaude)
-	translated = applyPayloadConfigWithRoot(e.cfg, req.Model, "antigravity", "request", translated)
+	translated = applyPayloadConfigWithRoot(e.cfg, req.Model, "antigravity", "request", translated, originalTranslated)
 
 	baseURLs := antigravityBaseURLFallbackOrder(auth)
 	httpClient := newProxyAwareHTTPClient(ctx, e.cfg, auth, 0)
@@ -899,7 +914,13 @@ func (e *AntigravityExecutor) ensureAccessToken(ctx context.Context, auth *clipr
 	if accessToken != "" && expiry.After(time.Now().Add(refreshSkew)) {
 		return accessToken, nil, nil
 	}
-	updated, errRefresh := e.refreshToken(ctx, auth.Clone())
+	refreshCtx := context.Background()
+	if ctx != nil {
+		if rt, ok := ctx.Value("cliproxy.roundtripper").(http.RoundTripper); ok && rt != nil {
+			refreshCtx = context.WithValue(refreshCtx, "cliproxy.roundtripper", rt)
+		}
+	}
+	updated, errRefresh := e.refreshToken(refreshCtx, auth.Clone())
 	if errRefresh != nil {
 		return "", nil, errRefresh
 	}
