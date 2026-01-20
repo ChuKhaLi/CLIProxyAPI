@@ -1,46 +1,31 @@
-name: docker-image
+name: CI/CD Pipeline
 
 on:
   push:
-    tags:
-      - v*
-
-env:
-  APP_NAME: CLIProxyAPI
-  DOCKERHUB_REPO: eceasy/cli-proxy-api
+    branches:
+      - main
+  schedule:
+    - cron: '0 21 * * *'  # 4 AM GMT+7 (21:00 UTC) daily
+  workflow_dispatch:
 
 jobs:
-  docker:
+  deploy:
+    name: Deploy to ${{ matrix.server }}
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        server: ${{ fromJson(vars.DEPLOY_SERVERS) }}
+      fail-fast: false
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      - name: Login to DockerHub
-        uses: docker/login-action@v3
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.0
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - name: Generate Build Metadata
-        run: |
-          echo VERSION=`git describe --tags --always --dirty` >> $GITHUB_ENV
-          echo COMMIT=`git rev-parse --short HEAD` >> $GITHUB_ENV
-          echo BUILD_DATE=`date -u +%Y-%m-%dT%H:%M:%SZ` >> $GITHUB_ENV
-      - name: Build and push
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          platforms: |
-            linux/amd64
-            linux/arm64
-          push: true
-          build-args: |
-            VERSION=${{ env.VERSION }}
-            COMMIT=${{ env.COMMIT }}
-            BUILD_DATE=${{ env.BUILD_DATE }}
-          tags: |
-            ${{ env.DOCKERHUB_REPO }}:latest
-            ${{ env.DOCKERHUB_REPO }}:${{ env.VERSION }}
+          host: ${{ secrets[format('SSH_HOST_{0}', matrix.server)] }}
+          port: ${{ secrets[format('SSH_PORT_{0}', matrix.server)] }}
+          username: ${{ secrets[format('SSH_USERNAME_{0}', matrix.server)] }}
+          password: ${{ secrets[format('SSH_PASSWORD_{0}', matrix.server)] }}
+          script: |
+            cd ${{ secrets[format('DEPLOY_PATH_{0}', matrix.server)] }}
+            docker compose pull
+            docker compose up -d --remove-orphans
+            docker image prune -f
