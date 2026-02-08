@@ -1,0 +1,31 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: '0 21 * * *'  # 4 AM GMT+7 (21:00 UTC) daily
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy to ${{ matrix.server }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        server: ${{ fromJson(vars.DEPLOY_SERVERS) }}
+      fail-fast: false
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets[format('SSH_HOST_{0}', matrix.server)] }}
+          port: ${{ secrets[format('SSH_PORT_{0}', matrix.server)] }}
+          username: ${{ secrets[format('SSH_USERNAME_{0}', matrix.server)] }}
+          password: ${{ secrets[format('SSH_PASSWORD_{0}', matrix.server)] }}
+          script: |
+            cd ${{ secrets[format('DEPLOY_PATH_{0}', matrix.server)] }}
+            docker compose pull
+            docker compose up -d --remove-orphans
+            docker image prune -f
